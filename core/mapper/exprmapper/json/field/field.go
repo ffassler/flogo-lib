@@ -54,7 +54,7 @@ func (m *MappingField) paserName() error {
 		if nextAfterBracket == '"' || nextAfterBracket == '\'' {
 			//Special charactors
 			m.s.Mode = scanner.ScanIdents
-			return m.handleSpecialField()
+			return m.handleSpecialField(nextAfterBracket)
 		} else {
 			//HandleArray
 			if m.fields == nil || len(m.fields) <= 0 {
@@ -84,13 +84,14 @@ func (m *MappingField) paserName() error {
 	return nil
 }
 
-func (m *MappingField) handleSpecialField() error {
+func (m *MappingField) handleSpecialField(startQutoes int32) error {
 	fieldName := ""
 	run := true
 
 	for run {
 		switch ch := m.s.Scan(); ch {
-		case '"', '\'':
+		case startQutoes:
+			//Check if end with startQutoes]
 			nextAfterQuotes := m.s.Scan()
 			if nextAfterQuotes == ']' {
 				//end specialfield, startover
@@ -98,6 +99,7 @@ func (m *MappingField) handleSpecialField() error {
 				run = false
 				return m.Parser()
 			} else {
+				fieldName = fieldName + string(startQutoes)
 				fieldName = fieldName + m.s.TokenText()
 			}
 		default:
@@ -117,7 +119,7 @@ func (m *MappingField) Parser() error {
 		if nextAfterBracket == '"' || nextAfterBracket == '\'' {
 			//Special charactors
 			m.s.Mode = scanner.ScanIdents
-			return m.handleSpecialField()
+			return m.handleSpecialField(nextAfterBracket)
 		} else {
 			//HandleArray
 			if m.fields == nil || len(m.fields) <= 0 {
@@ -148,6 +150,8 @@ func (m *MappingField) Start(jsonPath string) error {
 	m.s.IsIdentRune = IsIdentRune
 	m.s.Init(strings.NewReader(jsonPath))
 	m.s.Mode = scanner.ScanIdents
+	//Donot skip space and new line
+	m.s.Whitespace ^= 1<<'\t' | 1<<'\n' | 1<<'\r' | 1<<' '
 	return m.Parser()
 }
 

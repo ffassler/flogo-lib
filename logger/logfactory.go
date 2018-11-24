@@ -2,10 +2,12 @@ package logger
 
 import (
 	"fmt"
+	"os"
+	"strings"
 	"sync"
 
-	"github.com/sirupsen/logrus"
 	"github.com/TIBCOSoftware/flogo-lib/config"
+	"github.com/sirupsen/logrus"
 )
 
 var loggerMap = make(map[string]Logger)
@@ -18,7 +20,9 @@ type DefaultLoggerFactory struct {
 
 func init() {
 
-	RegisterLoggerFactory(&DefaultLoggerFactory{})
+	logFormat = config.GetLogFormat()
+
+	envLoggerImpl := os.Getenv("FLOGO_LOGGER_IMPL")
 
 	logLevelName := config.GetLogLevel()
 	// Get log level for name
@@ -29,16 +33,20 @@ func init() {
 		logLevel = getLogLevel
 	}
 
-	logFormat = config.GetLogFormat()
+	if strings.EqualFold(envLoggerImpl, "zap") {
+		initRootLogger()
+		RegisterLoggerFactory(&ZapLoggerFactory{})
+		rootLogger.SetLogLevel(logLevel)
+	} else {
+		RegisterLoggerFactory(&DefaultLoggerFactory{})
+	}
+	defaultLogger = getDefaultLogger()
 }
 
 type DefaultLogger struct {
 	loggerName string
 	loggerImpl *logrus.Logger
 }
-
-
-
 
 type LogFormatter struct {
 	loggerName string
@@ -48,8 +56,6 @@ func (f *LogFormatter) Format(entry *logrus.Entry) ([]byte, error) {
 	logEntry := fmt.Sprintf("%s %-6s [%s] - %s\n", entry.Time.Format(config.GetLogDateTimeFormat()), getLevel(entry.Level), f.loggerName, entry.Message)
 	return []byte(logEntry), nil
 }
-
-
 
 func getLevel(level logrus.Level) string {
 	switch level {
